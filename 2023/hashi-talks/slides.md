@@ -145,42 +145,7 @@ metadata:
 }
 ```
 
----
-
-```json
-{
-// ...
-"StringEquals": {
-  // ...
-  "YOUR_OIDC_URI:sub": "system:serviceaccount:KUBE_NS:KUBE_SA",
-  // ...
-}
-// ...
-}
-```
-
----
-
-```json
-{
-// ...
-  "Action": "sts:AssumeRoleWithWebIdentity",
-// ...
-}
-```
-
-### JWT
-
-```json
-{
-  "iss": "https://kubernetes.cluster.local",
-  "aud": "sts.amazonaws.com",
-  "sub": "system:service:KUBE_NS:KUBE_SA",
-  "iat": 1516239022
-}
-```
-
-## OIDC Provider
+### OIDC Provider
 
 ```terraform
 data "tls_certificate" "eks" {
@@ -196,22 +161,51 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 ---
 
-::: incremental
+```json
+{
+// ...
+"StringEquals": {
+  // ...
+  "YOUR_OIDC_URI:sub": "system:serviceaccount:KUBE_NS:KUBE_SA",
+  // ...
+}
+// ...
+}
+```
 
-- `aws_eks_cluster.this.identity[0].oidc[0].issuer`
-  - &rarr; `https://YOUR_OIDC_URI`
+### JWT
 
-:::
+```json
+{
+  "iss": "https://kubernetes.cluster.local",
+  "aud": "sts.amazonaws.com",
+  "sub": "system:service:KUBE_NS:KUBE_SA"
+}
+```
+
+---
+
+```json
+{
+// ...
+  "Action": "sts:AssumeRoleWithWebIdentity",
+// ...
+}
+```
 
 ## Observations
 
 ::: incremental
 
 - AWS SDKs seem to "just work" without `~/.aws/config`
-- EKS-only, no other Kubernetes distros
+- Magical
 - Creds are fresh, never frozen
 
 :::
+
+---
+
+![](https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fl450v.alamy.com%2F450v%2Fkm7b21%2Falways-fresh-never-frozen-grunge-rubber-stamp-on-white-background-km7b21.jpg&f=1&nofb=1&ipt=25e551438ce6d0770e8b905d91089ec3e77f927113ed7a1a4c7c55015ab8ae28&ipo=images)
 
 ## Limits
 
@@ -227,33 +221,23 @@ resource "aws_iam_openid_connect_provider" "eks" {
 
 - unless `~/.aws/config` with `assume_role` cross-account
 - scaling across 100's of accounts, 2-way handshakes... _HARD_
-- several steps, only usable by this kube cluster
+- several steps, only usable by this EKS cluster for AWS stuff
 
 </aside>
-
----
-
-![](https://external-content.duckduckgo.com/iu/?u=http%3A%2F%2Fl450v.alamy.com%2F450v%2Fkm7b21%2Falways-fresh-never-frozen-grunge-rubber-stamp-on-white-background-km7b21.jpg&f=1&nofb=1&ipt=25e551438ce6d0770e8b905d91089ec3e77f927113ed7a1a4c7c55015ab8ae28&ipo=images)
 
 # ...
 
 ---
 
-Kubernetes is evolving!
+<!-- ![](https://i.imgur.com/OezkEMW.png) -->
+
+![](./Pokemon-evolving-BEFORE.png)
 
 ---
 
-![](https://i.imgur.com/OezkEMW.png)
+<!-- ![](https://i.imgur.com/QjXHQvI.png) -->
 
----
-
-![](https://i.imgur.com/QjXHQvI.png)
-
----
-
-- HashiCorp Vault
-- Vault Agent Injector (helm)
-- AWS SDK config files
+![](./Pokemon-evolving-AFTER.png)
 
 # HashiCorp Vault
 
@@ -277,14 +261,46 @@ Kubernetes is evolving!
 
 </aside>
 
-## AWS Creds
+## Vault Agent Injector
 
-- Vault Agent Injector
-  - annotations &rarr; Pod + Vault Agent
-- Templated INI file
-  - contents like `~/.aws/credentials`
-- `AWS_SHARED_CREDENTIALS`
-  - **&rArr;** `/vault/secrets/<NAME>`)
+::: incremental
+
+- Feature of the Vault Helm chart
+- Pod + annotations &rarr; Pod + Vault Agent
+- Agent templates a config file
+- Contents of file look like `~/.aws/credentials`
+
+:::
+
+<aside class="notes">
+
+- Whatever your orchestration:
+  - Deployment, DaemonSet, StatefulSet
+  - Job, CronJob
+- Observes annotations on all pods coming in
+  - modifies if relevant annotations exist
+  - modifies according to annotations as settings
+
+</aside>
+
+
+## AWS SDK
+
+::: incremental
+
+- Consistency!
+  - `~/.aws/credentials`
+  - `~/.aws/config`
+  - INI syntax
+- Environment variables!
+  - `AWS_PROFILE`
+    - `[default]` or `[db-access]`
+  - `AWS_SHARED_CREDENTIALS_FILE`
+    - `~/.aws/credentials` &rarr; `/vault/secrets/<NAME>`
+
+:::
+
+## Inject!
 
 ---
 
@@ -314,18 +330,16 @@ vault.hashicorp.com/agent-inject-template-awscreds: |
   image: docker.io/nickchase/rss-php-nginx:v1
   env:
     # ...
-    - name: AWS_SHARED_CREDENTIALS
+    - name: AWS_SHARED_CREDENTIALS_FILE
       value: /vault/secrets/awscreds
     # ...
 ```
 
----
+## GitHub
 
-(demo)
+[TheLonelyGhost/example-vault-irsa](https://github.com/TheLonelyGhost/example-vault-irsa)
 
 # Who Am I?
-
----
 
 ![David Alexander](https://github.com/thelonelyghost.png)
 
