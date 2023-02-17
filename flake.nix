@@ -14,6 +14,7 @@
         devShell = pkgs.mkShell {
           nativeBuildInputs = [
             pkgs.bashInteractive
+            pkgs.python3
             pkgs.envsubst
             pkgs.pandoc
             pkgs.nodejs
